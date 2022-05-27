@@ -7,7 +7,7 @@ const Mensajes = require('./apiMensajes')
 const { response } = require('express')
 const express = require('express')
 const routerProductos = require('./routers/productos')
-const handlebars = require('express-handlebars')
+const hbs = require('express-handlebars')
 const { Server: IOServer } = require('socket.io')
 const { Server: HttpServer } = require('http')
 const fetch = require('node-fetch')
@@ -22,9 +22,9 @@ const LocalStrategy = require('passport-local').Strategy
 
 const usuarios = 
 [
-  {email: 'tomas@gmail', contraseña: 'Tomas'},
-  {email: 'tobias@gmail', contraseña: 'Tobias'},
-  {email: 'juan@gmail', contraseña: 'Juan'}
+  {mail: 'tomas@gusername', password: 'Tomas'},
+  {mail: 'tobias@gusername', password: 'Tobias'},
+  {mail: 'juan@gusername', password: 'Juan'}
 ]
 
 // const MongoStore = require('connect-mongo')
@@ -42,67 +42,141 @@ let messages = []
 let prod = []
 let user
 
-app.use(express.json())
 app.use(express.urlencoded({extended: true}))
-
-
-// app.use(express.static('./public'))
-// app.use('/api/productos-test', routerProductos)
-// app.get('/todo', (req, res) => {
-//   res.sendFile('index.html')
-// })
+app.use(express.json())
 
 
 app.use(cookieParser())
 app.use(
   session({
-    secret: 'secreto',
+    secret: '1234567890!@#$%^&*()',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      maxAge: 20000
-    }
+      maxAge: 20000, //20 seg
+    },
   })
 )
 
 app.use(passport.initialize())
 app.use(passport.session())
 
+//passport
 
-passport.use('register', new LocalStrategy(
-  {passReqToCallback: true},
-  (req, mail, password, done) => {
-    const existe = usuarios.find((usuario) => {return usuario.email === mail})
-    if (existe){
+passport.use(
+  'register',
+
+  new LocalStrategy(
+    { passReqToCallback: true },
+    (req, username, password, done) => {
+      console.log('entro signup')
+      const existe = usuarios.find((usuario) => {
+        return usuario.mail == username
+      })
+
+      if (existe) {
+        return done(null, false)
+      } else {
+        usuarios.push({ mail: username, password: password })
+        console.log(usuarios)
+        done(null, { mail: username })
+      }
+    }
+  )
+)
+passport.use(
+  'login',
+  new LocalStrategy((username, password, done) => {
+    console.log('entro')
+    const existe = usuarios.find((usuario) => {
+      return usuario.mail == username && usuario.password == password
+    })
+    console.log(existe)
+    if (!existe) {
       return done(null, false)
     } else {
-      usuarios.push({email: mail, contraseña: password})
-      console.log(usuarios)
-      done(null, {email: mail})
+      //console.log(existe)
+      return done(null, existe)
     }
-  }
-))
+    //if (username == 'hector') return done(null, { id: 1, name: 'Hector' })
+  })
+)
 
-// passport.serializeUser((usuario, done) => {
-//   done(null, usuario.email)
-// })
+passport.serializeUser((usuario, done) => {
+  console.log(usuario.mail + 'serializado')
+  done(null, usuario.mail)
+})
 
-// passport.deserializeUser((email, done) => {
-//   const usuarioDZ = usuarios.find((usuario) => (usuario.email = email))
-//   done(null, usuarioDZ)
-// })
+passport.deserializeUser((nombre, done) => {
+  const usuarioDz = usuarios.find((usuario) => usuario.mail == nombre)
+  console.log(JSON.stringify(usuarioDz) + 'desserializado')
+  done(null, usuarioDz)
+})
 
+
+/*----------- Motor de plantillas -----------*/
 app.set('views', './src/views')
 
 app.engine(
   '.hbs',
-  handlebars.engine({
+  hbs.engine({
     defaultLayout: 'main',
     layoutsDir: './src/views/layouts',
     extname: '.hbs',
   })
 )
 app.set('view engine', '.hbs')
+
+//rutas
+
+app.get('/login', (req, res) => {
+  req.logOut()
+  res.render('login')
+})
+
+app.get('/registrar', (req, res) => {
+  res.render('register')
+})
+
+app.post(
+  '/register',
+  passport.authenticate('register', {
+    successRedirect: '/login',
+    failureRedirect: '/login-error',
+  })
+)
+
+app.post(
+  '/login',
+  passport.authenticate('login', {
+    successRedirect: '/datos',
+    failureRedirect: '/login-error',
+  })
+)
+
+app.get('/login-error', (req, res) => {
+  res.render('login-error')
+})
+
+app.get('/datos', (req, res) => {
+  res.sendFile(path.resolve("public/index.html"));
+})
+
+app.get('/logout', (req, res) => {
+  console.log(req.sesssion)
+  req.logOut()
+
+  res.redirect('/login')
+})
+
+
+app.use(express.static('./public'))
+app.use('/api/productos-test', routerProductos)
+app.get('/todo', (req, res) => {
+  res.sendFile('index.html')
+})
+
+
 
 // app.use(cookieParser())
 // app.use(session({
@@ -123,17 +197,6 @@ const server = httpServer.listen(PORT , () => console.log(`servidor Levantado ${
 server.on('error', (error) => console.log(`Error en servidor ${error}`))
 
 
-app.get('/registrar', (req, res) => {
-  res.render('register')
-})
-
-app.post(
-  '/register',
-  passport.authenticate('register', {
-    successRedirect: '/login',
-    failureRedirect: '/login-error',
-  })
-)
 
 
 // app.get("/logeo", (req, res) => {
@@ -224,7 +287,7 @@ io.on('connection', async (socket) => {
         edad: author.edad,
         alias: author.alias,
         avatar: author.avatar
-      }, {idAttribute: author.mail})
+      }, {idAttribute: author.username})
       texto = new schema.Entity('text', {
         texto: texto
       })
