@@ -18,17 +18,18 @@ const session = require('express-session')
 const { ne } = require('faker/lib/locales')
 const passport = require('passport')
 const LocalStrategy = require('passport-local').Strategy
+const {userDaos: User} = require('./daos/mainDaos')
 
 
-const usuarios = 
-[
-  {mail: 'tomas@gusername', password: 'Tomas'},
-  {mail: 'tobias@gusername', password: 'Tobias'},
-  {mail: 'juan@gusername', password: 'Juan'}
-]
+// const usuarios = 
+// [
+//   {mail: 'tomas@gusername', password: 'Tomas'},
+//   {mail: 'tobias@gusername', password: 'Tobias'},
+//   {mail: 'juan@gusername', password: 'Juan'}
+// ]
 
-// const MongoStore = require('connect-mongo')
-// const advancedOptions = { useNewUrlParser: true, useUniFiedTopology: true }
+const MongoStore = require('connect-mongo')
+const advancedOptions = { useNewUrlParser: true, useUniFiedTopology: true }
 
 
 let test = new Contenedor(knex,"prueba")
@@ -41,22 +42,34 @@ const io = new IOServer(httpServer)
 let messages = []
 let prod = []
 let user
+let pass 
 
 app.use(express.urlencoded({extended: true}))
 app.use(express.json())
 
-
 app.use(cookieParser())
-app.use(
-  session({
-    secret: '1234567890!@#$%^&*()',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 20000, //20 seg
-    },
-  })
-)
+app.use(session({
+  store: MongoStore.create({
+    mongoUrl: 'mongodb+srv://tomasSesiones:asd123@tomi.fuaxu.mongodb.net/sesiones?retryWrites=true&w=majority',
+    mongoOptions: advancedOptions,
+    ttl: 30
+  }),
+  secret: 'secreto',
+  resave: true,
+  saveUninitialized: true
+}))
+
+// app.use(cookieParser())
+// app.use(
+//   session({
+//     secret: '1234567890!@#$%^&*()',
+//     resave: false,
+//     saveUninitialized: false,
+//     cookie: {
+//       maxAge: 20000, //20 seg
+//     },
+//   })
+// )
 
 app.use(passport.initialize())
 app.use(passport.session())
@@ -70,15 +83,23 @@ passport.use(
     { passReqToCallback: true },
     (req, username, password, done) => {
       console.log('entro signup')
-      const existe = usuarios.find((usuario) => {
-        return usuario.mail == username
-      })
+      let existe
+      user = req.session['mail']
+      if (user == username){
+        existe = username
+      }
+      
+      // const existe = usuarios.find((usuario) => {
+      //   return usuario.mail == username
+      // })
 
       if (existe) {
         return done(null, false)
       } else {
-        usuarios.push({ mail: username, password: password })
-        console.log(usuarios)
+        req.session['mail'] = username
+        req.session['password'] = password      
+        // usuarios.push({ mail: username, password: password })
+        //console.log(usuarios)
         done(null, { mail: username })
       }
     }
@@ -86,11 +107,23 @@ passport.use(
 )
 passport.use(
   'login',
-  new LocalStrategy((username, password, done) => {
-    console.log('entro')
-    const existe = usuarios.find((usuario) => {
-      return usuario.mail == username && usuario.password == password
-    })
+  new LocalStrategy(async (username, password, done) => { 
+    let existe
+    
+    const usuarioDB = new User()
+    
+    const userDB = await usuarioDB.getAll()
+
+    console.log(userDB[0])
+    let test = userDB[0].session
+
+    console.log(JSON.stringify(test))
+    if (req.session['mail'] == username && req.session['password'] == password){
+        existe = username
+      }
+    // const existe = usuarios.find((usuario) => {
+    //   return usuario.mail == username && usuario.password == password
+    // })
     console.log(existe)
     if (!existe) {
       return done(null, false)
@@ -102,13 +135,14 @@ passport.use(
   })
 )
 
-passport.serializeUser((usuario, done) => {
-  console.log(usuario.mail + 'serializado')
-  done(null, usuario.mail)
+passport.serializeUser((user, done) => {
+  console.log(user + 'serializado')
+  done(null, user)
 })
 
 passport.deserializeUser((nombre, done) => {
-  const usuarioDz = usuarios.find((usuario) => usuario.mail == nombre)
+  user = nombre
+  const usuarioDz = user
   console.log(JSON.stringify(usuarioDz) + 'desserializado')
   done(null, usuarioDz)
 })
@@ -130,11 +164,15 @@ app.set('view engine', '.hbs')
 //rutas
 
 app.get('/login', (req, res) => {
+  user = req.body.username
+  pass = req.body.password
   req.logOut()
   res.render('login')
 })
 
 app.get('/registrar', (req, res) => {
+  user = req.body.username
+  pass = req.body.password
   res.render('register')
 })
 
@@ -178,17 +216,7 @@ app.get('/todo', (req, res) => {
 
 
 
-// app.use(cookieParser())
-// app.use(session({
-//   store: MongoStore.create({
-//     mongoUrl: 'mongodb+srv://tomasSesiones:asd345@tomi.fuaxu.mongodb.net/sesiones?retryWrites=true&w=majority',
-//     mongoOptions: advancedOptions,
-//     ttl: 30
-//   }),
-//   secret: 'secreto',
-//   resave: true,
-//   saveUninitialized: true
-// }))
+
 
 
 /* Server Listen */
