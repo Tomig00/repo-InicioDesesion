@@ -26,6 +26,28 @@ class Usuario {
           throw Error(error.message);
         }
       }
+      
+
+      async getByUser(user) {
+        try {
+            await this.connectMDB()
+            const usuario = await esquemaUser.findOne({ 'mail': user });
+            mongoose.disconnect()
+            return usuario
+        } catch (error) {
+            throw Error(error.message)
+        }
+    }
+
+      async save(user) {
+        try {
+            await this.connectMDB()
+            await esquemaUser.create(user)
+            mongoose.disconnect()
+        } catch (error) {
+            throw Error(error.message)
+        }
+    }
 
 }
 

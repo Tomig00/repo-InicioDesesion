@@ -19,8 +19,8 @@ const { ne } = require('faker/lib/locales')
 const passport = require('passport')
 const LocalStrategy = require('passport-local').Strategy
 const {userDaos: User} = require('./daos/mainDaos')
-
-
+const script = require('bcrypt')
+const saltRounds = 10;
 // const usuarios = 
 // [
 //   {mail: 'tomas@gusername', password: 'Tomas'},
@@ -29,6 +29,7 @@ const {userDaos: User} = require('./daos/mainDaos')
 // ]
 
 const MongoStore = require('connect-mongo')
+const Usuario = require('./daos/userDaos')
 const advancedOptions = { useNewUrlParser: true, useUniFiedTopology: true }
 
 
@@ -42,7 +43,7 @@ const io = new IOServer(httpServer)
 let messages = []
 let prod = []
 let user
-let pass 
+
 
 app.use(express.urlencoded({extended: true}))
 app.use(express.json())
@@ -81,27 +82,17 @@ passport.use(
 
   new LocalStrategy(
     { passReqToCallback: true },
-    (req, username, password, done) => {
+    async (req, username, password, done) => {
       console.log('entro signup')
-      let existe
-      user = req.session['mail']
-      if (user == username){
-        existe = username
-      }
-      
-      // const existe = usuarios.find((usuario) => {
-      //   return usuario.mail == username
-      // })
 
-      if (existe) {
-        return done(null, false)
-      } else {
-        req.session['mail'] = username
-        req.session['password'] = password      
-        // usuarios.push({ mail: username, password: password })
-        //console.log(usuarios)
-        done(null, { mail: username })
-      }
+      const usuarioDB = new Usuario()
+      
+      script.hash(password, saltRounds, async function (err, hash) {
+        await usuarioDB.save({ mail: username, password: hash })
+      });
+      
+
+      done(null, { mail: username })
     }
   )
 )
@@ -112,38 +103,37 @@ passport.use(
     
     const usuarioDB = new User()
     
-    const userDB = await usuarioDB.getAll()
-
-    console.log(userDB[0])
-    let test = userDB[0].session
-
-    console.log(JSON.stringify(test))
-    if (req.session['mail'] == username && req.session['password'] == password){
-        existe = username
+    const userDB = await usuarioDB.getByUser(username)
+    
+    script.compare(password, userDB?.password??'', function(err, result) {
+      existe = result
+      if (!existe) {
+        return done(null, false)
+      } else {
+        //console.log(existe)
+        return done(null, existe)
       }
+   });
+
+    console.log(userDB)
+
     // const existe = usuarios.find((usuario) => {
     //   return usuario.mail == username && usuario.password == password
     // })
-    console.log(existe)
-    if (!existe) {
-      return done(null, false)
-    } else {
-      //console.log(existe)
-      return done(null, existe)
-    }
+
+    
     //if (username == 'hector') return done(null, { id: 1, name: 'Hector' })
   })
 )
 
 passport.serializeUser((user, done) => {
-  console.log(user + 'serializado')
+  //console.log(user + 'serializado')
   done(null, user)
 })
 
 passport.deserializeUser((nombre, done) => {
-  user = nombre
-  const usuarioDz = user
-  console.log(JSON.stringify(usuarioDz) + 'desserializado')
+  const usuarioDz = nombre
+  //console.log(JSON.stringify(usuarioDz) + 'desserializado')
   done(null, usuarioDz)
 })
 
@@ -164,15 +154,11 @@ app.set('view engine', '.hbs')
 //rutas
 
 app.get('/login', (req, res) => {
-  user = req.body.username
-  pass = req.body.password
   req.logOut()
   res.render('login')
 })
 
 app.get('/registrar', (req, res) => {
-  user = req.body.username
-  pass = req.body.password
   res.render('register')
 })
 
@@ -201,7 +187,6 @@ app.get('/datos', (req, res) => {
 })
 
 app.get('/logout', (req, res) => {
-  console.log(req.sesssion)
   req.logOut()
 
   res.redirect('/login')
