@@ -60,18 +60,6 @@ app.use(session({
   saveUninitialized: true
 }))
 
-// app.use(cookieParser())
-// app.use(
-//   session({
-//     secret: '1234567890!@#$%^&*()',
-//     resave: false,
-//     saveUninitialized: false,
-//     cookie: {
-//       maxAge: 20000, //20 seg
-//     },
-//   })
-// )
-
 app.use(passport.initialize())
 app.use(passport.session())
 
@@ -107,33 +95,22 @@ passport.use(
     
     script.compare(password, userDB?.password??'', function(err, result) {
       existe = result
-      if (!existe) {
+      if (!existe) {  
         return done(null, false)
       } else {
-        //console.log(existe)
         return done(null, existe)
       }
    });
-
     console.log(userDB)
-
-    // const existe = usuarios.find((usuario) => {
-    //   return usuario.mail == username && usuario.password == password
-    // })
-
-    
-    //if (username == 'hector') return done(null, { id: 1, name: 'Hector' })
   })
 )
 
 passport.serializeUser((user, done) => {
-  //console.log(user + 'serializado')
   done(null, user)
 })
 
 passport.deserializeUser((nombre, done) => {
   const usuarioDz = nombre
-  //console.log(JSON.stringify(usuarioDz) + 'desserializado')
   done(null, usuarioDz)
 })
 
@@ -183,6 +160,7 @@ app.get('/login-error', (req, res) => {
 })
 
 app.get('/datos', (req, res) => {
+  console.log(req.session)
   res.sendFile(path.resolve("public/index.html"));
 })
 
@@ -208,45 +186,6 @@ app.get('/todo', (req, res) => {
 const PORT = process.env.PORT || 8080
 const server = httpServer.listen(PORT , () => console.log(`servidor Levantado ${PORT}`))
 server.on('error', (error) => console.log(`Error en servidor ${error}`))
-
-
-
-
-// app.get("/logeo", (req, res) => {
-//    if (req.session["user"])
-//     return res.sendFile(path.resolve("public/index.html"));
-//   res.sendFile(path.resolve("public/login.html"));
-// });
-
-// app.get("/index", (req, res) => {
-//   if (req.session["user"])
-//    return res.sendFile(path.resolve("public/index.html"));
-//  res.sendFile(path.resolve("public/login.html"));
-// });
-
-// app.get("/deslogeo", (req, res) => {
-//   //document.getElementById('nameUser').innerHTML = user
-//   res.sendFile(path.resolve("public/logout.html"));
-// });
-
-// app.post("/login", (req, res) => {
-//   user = req.body.user;
-//   console.log(user)
-//   if(user !== "") {
-//     req.session["user"] = user;
-//     res.redirect("/index");
-//   } 
-//   else {
-//     res.sendFile(path.resolve("public/login.html"));
-//   } 
-// });
-
-// app.post("/logout", (req, res) => {
-//   req.session.destroy((err) => {
-//   if (!err) res.redirect("/deslogeo")
-//   else res.send({status : 'desLogeo Error', error: err})
-//   })
-// });
 
 
 io.on('connection', async (socket) => {
@@ -359,22 +298,3 @@ io.on('connection', async (socket) => {
 
 
 
-
-
-
-
-
-// app.get('/root', (req, res) => {
-//   if (!req.session.user){
-//     req.query.user
-//       ? (req.session.user = req.query.user)
-//       : (req.session.user = 'anonimo')
-//   }
-//   if (req.session.contador) {
-//     req.session.contador ++ 
-//     res.send(`${req.session.user} ha visitado ${req.session.contador} veces`)
-//   } else {
-//     req.session.contador = 1
-//     res.send('hola' + req.session?.user)
-//   }
-// })
